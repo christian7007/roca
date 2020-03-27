@@ -9,6 +9,11 @@ pub struct ClientXMLRPC {
     endpoint: String,
 }
 
+pub struct Response {
+    args: Vec<Value>,
+}
+
+#[allow(dead_code)]
 impl ClientXMLRPC {
 
     // TODO, defines method for reading oen_auth
@@ -27,11 +32,52 @@ impl ClientXMLRPC {
     //Try to import https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
     // if works open a PR
 
-    pub fn call(&self, request: Request) -> Result<Value, xmlrpc::Error>{
-        let rc = request.call_url(&self.endpoint)?;
+    pub fn call(&self, request: Request) -> Result<Response, String>{
 
-        Ok(rc)
+        match request.call_url(&self.endpoint) {
+            Ok(rc) => Response::new(rc),
+            Err(_) => Err(String::from("Cannot contact the server."))
+        }
     }
+}
+
+#[allow(dead_code)]
+impl Response {
+
+    pub fn new(response: Value) -> Result<Response, String> {
+        match response {
+            Value::Array(args) => {
+                Ok(Response{
+                    args,
+                })
+            },
+            _ => Err(String::from("Bad response type."))
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    /// Helpers
+    ///////////////////////////////////////////////////////////////////////////
+
+    pub fn get_bool(&self, position: usize) -> Option<bool> {
+        self.args[position].as_bool()
+    }
+
+    pub fn get_int(&self, position: usize) -> Option<i32> {
+        self.args[position].as_i32()
+    }
+
+    pub fn get_str(&self, position: usize) -> Option<&str> {
+        self.args[position].as_str()
+    }
+
+    pub fn rc(&self) -> bool{
+        match self.get_bool(0) {
+            Some(rc) => rc,
+            _ => false
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -49,14 +95,19 @@ mod test {
         let req = client.new_request("one.vn.info").arg(0);
         let request_result = client.call(req).unwrap();
 
-        let rc = match request_result {
-            Value::Array(response) => response,
-            _ => panic!("Bas response type"),
-        };
+        assert_eq!(request_result.rc(), false);
+    }
 
-        assert_eq!(
-            rc[1].as_str().unwrap(),
-            "[one.vn.info] User couldn\'t be authenticated, aborting call."
+    #[test]
+    fn one_rc() {
+        let client = ClientXMLRPC::new(
+            String::from("oneadmin:opennebula"),
+            String::from("http://localhost:2633/RPC2")
         );
+
+        let req = client.new_request("one.user.info").arg(0);
+        let request_result = client.call(req).unwrap();
+
+        assert_eq!(request_result.rc(), true);
     }
 }

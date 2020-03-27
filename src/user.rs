@@ -1,13 +1,14 @@
 //! The user module allows to interact with OpenNebula users
 
 use crate::client::ClientXMLRPC;
-use xmlrpc::Value;
 
+#[allow(dead_code)]
 pub struct User {
     id: u32,
     body: String
 }
 
+#[allow(dead_code)]
 impl User {
 
     pub fn new(id: u32) -> User {
@@ -18,24 +19,22 @@ impl User {
     }
 
     pub fn info(&mut self, client: ClientXMLRPC) -> Result<(), String>{
-        let req = client.new_request("one.user.info").arg(0);
-        let rc  = client.call(req);
+        let req      = client.new_request("one.user.info").arg(0);
+        let response = client.call(req);
 
-        match rc {
-            Ok(val) => {
-                match val {
-                    Value::Array(response) => {
-                        self.body = String::from(response[1].as_str().unwrap());
+        match response {
+            Ok(resp) => {
+                // TODO, check rc
+                match resp.get_str(1) {
+                    Some(body) => {
+                        self.body = String::from(body);
+                        Ok(())
                     },
-                    _ => panic!("Bad response type"),
-                };
+                    _ => Err(String::from("The position required does not math the type."))
+                }
             },
-            Err(val) => {
-                return Err(val.to_string());
-            }
+            Err(e) => Err(e)
         }
-
-        Ok(())
     }
 
     pub fn print(&self) {
@@ -57,8 +56,9 @@ mod test {
 
         let mut user = User::new(0);
 
-        user.info(client);
-
-        user.print();
+        match user.info(client) {
+            Ok(()) => user.print(),
+            _ => panic!("Error on user info"),
+        }
     }
 }
