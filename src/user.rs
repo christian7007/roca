@@ -33,20 +33,18 @@ impl User {
         match response {
             Ok(resp) => {
                 if resp.rc() {
-                    match resp.get_int(1) {
-                        Some(v) => Ok(v),
-                        None => Err(String::from("The position required does not math the type."))
+                    if let Some(value) = resp.get_int(1) {
+                        return Ok(value);
                     }
-                } else {
-                    match resp.get_str(1) {
-                        Some(v) => Err(String::from(v)),
-                        None => Err(String::from("The position required does not math the type."))
-                    }
+                } else if let Some(value) = resp.get_str(1) {
+                        return Err(String::from(value));
                 }
             },
 
-            Err(e) => Err(e)
-        }
+            Err(e) => return Err(e)
+        };
+
+        Err(String::from("The position required does not math the type."))
     }
 
     pub fn delete(client: &ClientXMLRPC, id: i32) -> Result<(), String> {
